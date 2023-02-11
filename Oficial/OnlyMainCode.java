@@ -80,6 +80,7 @@ public class OnlyMainCode extends LinearOpMode {
 
     //Sistema de Elevação
     double currentPosition_MSE, controleEncoder_MSE, targetPosition_MSE, controleForce_MSE, max_MSE = -7000;
+    boolean runMaxPosition_MSE = false, controleMaxPosition_MSE = true, controleMaxPosition_MSE2 = true;
 
     //Prato
     double currentPosition_PRT, targetPosition_PRT = 0, zeroEncoder_PRT = 0, alvo_PRT = 0;
@@ -441,9 +442,9 @@ public class OnlyMainCode extends LinearOpMode {
 
         min_ATB = (currentPosition_ATB < 0 && erroATB2 < 10) ? currentPosition_ATB : min_ATB;
 
-        analogForceATB = y_left;
+        analogForceATB = y_right;
 
-        if(gamepad2.left_stick_button){
+        if(gamepad2.right_stick_button){
             max_ATB = currentPosition_ATB;
         }
         else if((currentPosition_ATB < min_ATB && analogForceATB < 0) || (currentPosition_ATB > max_ATB && analogForceATB > 0)){
@@ -484,13 +485,27 @@ public class OnlyMainCode extends LinearOpMode {
 
     public void limiteSistElevacao(){
 
-        max_MSE = gamepad2.right_stick_button ? currentPosition_MSE : max_MSE;
+        max_MSE = gamepad2.left_stick_button ? currentPosition_MSE : max_MSE;
 
-        controleForce_MSE = -y_right;
+        controleForce_MSE = -y_left;
 
-        if(((currentPosition_MSE >= 0 && y_right < 0) || (currentPosition_MSE <= max_MSE && y_right > 0)) && (!gamepad2.right_stick_button)){
+        if(gamepad2.y && controleMaxPosition_MSE){
+            if(runMaxPosition_MSE){runMaxPosition_MSE = false;}else{runMaxPosition_MSE = true;}
+            controleMaxPosition_MSE = false;
+        }
+        if(!gamepad2.y && !controleMaxPosition_MSE){ controleMaxPosition_MSE = true;}
+
+        if(runMaxPosition_MSE){
+            controleForce_MSE = (Math.abs(currentPosition_MSE) < Math.abs(max_MSE)) ? -1 : controleForce_MSE;
+        }
+        if(!runMaxPosition_MSE && gamepad2.y){
+            controleForce_MSE = (Math.abs(currentPosition_MSE) >50) ? 1 : controleForce_MSE;
+        }
+
+        if(((currentPosition_MSE >= 0 && y_left < 0) || (currentPosition_MSE <= max_MSE && y_left > 0)) && (!gamepad2.left_stick_button)){
             controleForce_MSE = 0;
         }
+
     }
 
     public void setServoGarra(){
@@ -608,7 +623,7 @@ public class OnlyMainCode extends LinearOpMode {
         RMF.setDirection(DcMotorSimple.Direction.FORWARD);      //FORWARD - Direção Normal
         RMB.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        MAT.setDirection(DcMotorSimple.Direction.FORWARD);
+        MAT.setDirection(DcMotorSimple.Direction.REVERSE);
         MSE.setDirection(DcMotorSimple.Direction.FORWARD);
         MRP.setDirection(DcMotorSimple.Direction.FORWARD);
 
