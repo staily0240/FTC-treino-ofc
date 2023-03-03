@@ -137,10 +137,11 @@
         double currentPosition_MSE, controleEncoder_MSE, targetPosition_MSE = 1823,  controleForce_MSE, max_MSE = -6100;
         double proporcional_MSE, erro_MSE, kP_MSE = 0.0008;
 
+        int contador = 0;
 
         double PID_loc;
         double proporcional_loc, integral_loc, derivada_loc;
-        double kP_loc = 0.02, kI_loc = 0, kD_loc = 0.002;
+        double kP_loc = 0.025, kI_loc = 0, kD_loc = 0.002;
 
         double erro_loc, ultErro_loc;
 
@@ -165,8 +166,16 @@
         public double eixoX_juncao, eixoY_juncao;
 
         double getAbsoluteAngleVariable, firstAngRotation;
-        boolean boolCoroar = false , boolAlinhamento = true;
+        boolean boolCoroar = false , boolAlinhamento = true, boolAjustar = true;
         double ultDist = 0;
+
+        double PID_PRT;
+        double proporcional_PRT, integral_PRT, derivada_PRT, controleEncoder_MRP;
+        double kP_PRT = 0.00065, kI_PRT = 0.00085, kD_PRT = 0.0002;
+        double erro_PRT, ultErro_PRT;
+
+        double giroCoroar = 0;
+        boolean boolGiro = true;
 
         @Override
         public void runOpMode()
@@ -176,50 +185,110 @@
 
     //        JuncaoInit();
 
-    //        idQRCode();
+            idQRCode();
 
     //        telemetry.addData("Eixo X:\t", cv.eixoX_juncao);
     //        telemetry.addData("Eixo Y:\t", cv.eixoY_juncao);
     //        telemetry.update();
             controleEncoder_MSE = MSE.getCurrentPosition();
             controleEncoder_ATB = MAT.getCurrentPosition();
+            controleEncoder_MRP = MRP.getCurrentPosition();
 
             waitForStart();
 
 
             while(test < 50){
                 getAbsoluteAngleVariable = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle;
-    //            getAbsoluteAngleVariable = (getAbsoluteAngleVariable < 0) ? (360 - getAbsoluteAngleVariable) : getAbsoluteAngleVariable;
                 test ++;
             }
 
-            statusGarra(false);
-
-            ajusteMSE(false);
-
-            runToStation();
-
-            statusGarra(true);
-
-            setAllPower(0.2);
-            sleep(500);
-
-            turnPID(90);
-    //
             setAllPower(0);
-    //
-            setPID_ATB();
-    //
-            ajusteMSE(true);
-    //
-            runToJuncao();
 
-            searchingJunction();
+//            setPID_ATB();
 
+            estacionar();
 
-            statusGarra(false);
+//            turnPID(-90);
+//            statusGarra(false);
+//
+//            ajusteMSE(false);
+//
+//            runToStation();
+//
+//            statusGarra(true);
+//
+//            sleep(200);
+////            setAllPower(0.2);
+////            sleep(500);
+////
+//            setPID_ATB(true);
+//
+//            ajusteMSE(true);
+//
+//            turnPID(90);
+//    //
+            setAllPower(0);
+//
+//            runToJuncao();
+//
+//            searchingJunction();
+
+//            coroar();
+//
+//            statusGarra(false);
+
     //
-            sleep(500);
+//            sleep(500);
+        }
+
+        private void estacionar() {
+//            while (1>0){
+//                telemetry.addData("ID:\t", id);
+//                telemetry.update();
+//            }
+            double motorPower = 0;
+
+            do {
+
+                distanceB = distanceSensorB.getDistance(DistanceUnit.CM);
+
+                erro_loc = (60.0 - distanceB);
+
+                proporcional_loc = erro_loc * kP_loc;
+
+                if(erro_loc < 30){
+                    proporcional_loc += 0.2;
+                }
+
+                turnToPID(getAbsoluteAngleVariable);
+                setAllPower(proporcional_loc);
+
+            }while (erro_loc > 5);
+
+            switch (id)
+            {
+                case 1:       //  Esquerda
+                    motorPower = -0.5;
+                    break;
+                case 2:       //  Meio
+                    motorPower = 0;
+                    break;
+                case 3:       //  Direita
+                    motorPower = 0.5;
+                    break;
+                default:
+                    break;
+            }
+            contador = 0;
+            while (contador < 185) {
+                turnToPID(getAbsoluteAngleVariable);
+                setMotorPowerIndiv(-motorPower, motorPower, motorPower, -motorPower);
+                contador ++;
+            }
+
+//            do{setAllPower(0.5);}while(distanceSensorB.getDistance(DistanceUnit.CM) < 55);
+            setAllPower(0);
+
         }
 
         private void test() {
@@ -302,9 +371,19 @@
 
                 proporcional_loc = erro_loc * kP_loc;
 
+                if(erro_loc < 30){
+                    proporcional_loc += 0.2;
+                }
+
+                turnToPID(firstAngRotation);
                 setAllPower(proporcional_loc);
 
             }while (erro_loc > 0);
+
+        }
+
+        public void runToTerminal() {
+
 
         }
 
@@ -324,36 +403,40 @@
 
         public void setPID_ATB(){
             double erro, ultPosition = 100;
+            contador = 0;
+            double motorPower;
             do {
 
-                currentPosition_ATB = Math.abs(MAT.getCurrentPosition()) -  Math.abs(controleEncoder_ATB);
-                erro = currentPosition_ATB - ultPosition;
+                currentPosition_ATB = Math.abs(MAT.getCurrentPosition());
+                erro = Math.abs(ultPosition) - Math.abs(currentPosition_ATB);
                 ultPosition = currentPosition_ATB;
 
                 erro_ATB = targetPosition_ATB - currentPosition_ATB;
                 proporcional_ATB = erro_ATB * kP_ATB;
 
-                MAT.setPower(proporcional_ATB);
+                motorPower = 0.8;
+
+                MAT.setPower(motorPower);
                 telemetry.addData("Posicao:\t", currentPosition_ATB);
-                telemetry.addData("Erro:\t", erro_ATB);
+                telemetry.addData("Contador:\t", contador);
 
                 telemetry.addData("Erro2:\t", erro);
                 telemetry.update();
 
-            }while (Math.abs(erro_ATB) > 150 && Math.abs(erro) != 0);
-
-            MAT.setPower(0.1);
+                if(contador < 20){
+                    erro = 100;
+                    contador++;
+                }
+            }while (Math.abs(currentPosition_ATB) < 1300 && Math.abs(erro) != 0); //
+            motorPower = 0.05;
+            contador = 0;
+            MAT.setPower(motorPower);
         }
 
         public void searchingJunction() {
             double motorPower, erro;
             double timer, timer2;
 
-            int contador = 0, alinhamento = 0;
-    //        boolean boolCont = false;
-
-    //        resetRuntime();
-            timer = getRuntime(); // 1000
             do {
 
                 distanceF = distanceSensorF.getDistance(DistanceUnit.CM);
@@ -362,7 +445,7 @@
                     contador++;
                 }
 
-                motorPower = 0.4;
+                motorPower = contador == 0 ? 0.7 : 0.4;
                 motorPower = (contador != 0) ? 0.2 : motorPower;
                 motorPower = (contador%2 != 0) ? -motorPower : motorPower;
 
@@ -391,13 +474,18 @@
         }
 
         public void coroar() {
-
+            double motorPower = 0.2;
+            contador = 0;
             do{
 
                 boolCoroar = false;
                 distanceF = distanceSensorF.getDistance(DistanceUnit.CM);
 
-                erro_loc = -(8 - distanceF);
+                erro_loc = -(12 - distanceF);
+
+                if(distanceF < 40 ){
+                    contador++;
+                }
 
     //            proporcional_loc = erro_loc * kP_loc;
     //
@@ -405,21 +493,88 @@
     //                proporcional_loc /= 2;
     //            }
 
-                setAllPower(0.2);
-
-                telemetry.addData("Proporcional:\t",proporcional_loc);
-                telemetry.addData("Distancia Frente:\t",distanceF);
-                telemetry.addData("Erro_Loc:\t",erro_loc);
+//                setAllPower(0.15);
+                setPID_PRT();
+                telemetry.addData("Giro:\t",giroCoroar);
+                telemetry.addData("Bool Giro:\t",boolGiro);
+                telemetry.addData("Ang:\t",(firstAngRotation+giroCoroar));
                 telemetry.update();
 
                 if(Math.abs(distanceF) > 40){  //
-                    if(erro_loc > 3){searchingJunction();}
+                    if(erro_loc > 4){
+                        motorPower = (contador%2 != 0) ? 0.2 : -0.2;
+                        setMotorPowerIndiv(motorPower, motorPower, -motorPower, -motorPower);
+                    }
+                }
+
+                if(erro_loc <=4 && boolAjustar){
+//                    setMotorPowerIndiv(-motorPower, motorPower, motorPower, -motorPower);
+                    sleep(100);
+                    boolAjustar = false;
                 }
     
-            }while (erro_loc > 3);
+            }while (erro_loc > 4);
 
             boolCoroar = true;
             setAllPower(0);
+        }
+
+        void turnToPIDCoroar(double targetAngle) {
+            TurnPIDController pid = new TurnPIDController(targetAngle, 0.01, 0, 0.003);
+            telemetry.setMsTransmissionInterval(50);
+
+            while (Math.abs(targetAngle - getAbsoluteAngle()) > 0.5 || pid.getLastSlope() > 0.75) {
+
+                double motorPower = pid.update(getAbsoluteAngle());
+                setMotorPowerIndiv(motorPower, motorPower, -motorPower, -motorPower);
+
+
+                if(motorPower < 0.006) break;
+
+            }
+            setAllPower(0);
+        }
+
+        public void setPID_PRT(){
+
+            erro_PRT = controleEncoder_MRP - MRP.getCurrentPosition();
+
+            proporcional_PRT = erro_PRT * kP_PRT;
+//                integral_PRT += erro_PRT * kI_PRT;
+            integral_PRT = 0;
+            derivada_PRT = 0;
+
+            if (Math.abs(erro_PRT) < 600) {// Erro - Não Passou
+                derivada_PRT = (erro_PRT - ultErro_PRT) * kD_PRT;
+            }
+
+            derivada_PRT = Math.abs(derivada_PRT) > 0.2 ? (derivada_PRT > 0 ? 0.2 : -0.2) : derivada_PRT;
+
+            PID_PRT = proporcional_PRT + integral_PRT + derivada_PRT;
+
+            PID_PRT = Math.abs(PID_PRT) < 0.1 ? 0 : PID_PRT;
+
+            MRP.setPower(PID_PRT);
+
+            ultErro_PRT = erro_PRT;
+
+
+            telemetry.addLine("\n-------------------------------------------------\n");
+
+            telemetry.addLine("Encoder - Prato:");//                           Encoder's
+            telemetry.addData("Atual:\t", MRP.getCurrentPosition());
+            telemetry.addData("Alvo:\t", controleEncoder_MRP);
+            telemetry.addData("Erro:\t", erro_PRT);
+
+
+            telemetry.addData("\nPID:\t", PID_PRT);
+            telemetry.addData("Proporcional:\t", proporcional_PRT);
+            telemetry.addData("Integral:\t", integral_PRT);
+            telemetry.addData("Derivada:\t", derivada_PRT);
+
+            telemetry.addLine("\n-------------------------------------------------\n");
+            telemetry.update();
+
         }
 
     //    Gyro
@@ -523,7 +678,7 @@
             RMF.setDirection(DcMotorSimple.Direction.FORWARD);      //FORWARD - Direção Normal
             RMB.setDirection(DcMotorSimple.Direction.FORWARD);
 
-            MAT.setDirection(DcMotorSimple.Direction.FORWARD);
+            MAT.setDirection(DcMotorSimple.Direction.REVERSE);
             MSE.setDirection(DcMotorSimple.Direction.REVERSE);
             MRP.setDirection(DcMotorSimple.Direction.FORWARD);
 
@@ -578,72 +733,55 @@
     //Processamento de Imagem:
 
     //-  Cone:
-        public void idQRCode(){
+    public void idQRCode(){
+        int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
+        camera = OpenCvCameraFactory.getInstance().createWebcam(hardwareMap.get(WebcamName.class, "Webcam 1"), cameraMonitorViewId);
+        aprilTagDetectionPipeline = new AprilTagDetectionPipeline(tagsize, fx, fy, cx, cy);
 
-            int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
-            camera = OpenCvCameraFactory.getInstance().createWebcam(hardwareMap.get(WebcamName.class, "Webcam 1"), cameraMonitorViewId);
-            aprilTagDetectionPipeline = new AprilTagDetectionPipeline(tagsize, fx, fy, cx, cy);
-
-            camera.setPipeline(aprilTagDetectionPipeline);
-            camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener()
+        camera.setPipeline(aprilTagDetectionPipeline);
+        camera.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener()
+        {
+            @Override
+            public void onOpened()
             {
-                @Override
-                public void onOpened()
+                camera.startStreaming(800,448, OpenCvCameraRotation.UPRIGHT);
+            }
+
+            @Override
+            public void onError(int errorCode)
+            {
+
+            }
+        });
+
+        telemetry.setMsTransmissionInterval(50);
+
+        /*
+         * The INIT-loop:
+         * This REPLACES waitForStart!
+         */
+        while (!isStarted() && !isStopRequested())
+        {
+            ArrayList<AprilTagDetection> currentDetections = aprilTagDetectionPipeline.getLatestDetections();
+
+            if(currentDetections.size() != 0)
+            {
+                boolean tagFound = false;
+
+                for(AprilTagDetection tag : currentDetections)
                 {
-                    camera.startStreaming(800,448, OpenCvCameraRotation.UPRIGHT);
+                    if(tag.id == LEFT || tag.id == MIDDLE || tag.id == RIGHT)
+                    {
+                        tagOfInterest = tag;
+                        tagFound = true;
+                        break;
+                    }
                 }
 
-                @Override
-                public void onError(int errorCode)
+                if(tagFound)
                 {
-
-                }
-            });
-
-            telemetry.setMsTransmissionInterval(50);
-
-            /*
-             * The INIT-loop:
-             * This REPLACES waitForStart!
-             */
-            while (!isStarted() && !isStopRequested())
-            {
-                ArrayList<AprilTagDetection> currentDetections = aprilTagDetectionPipeline.getLatestDetections();
-
-                if(currentDetections.size() != 0)
-                {
-                    boolean tagFound = false;
-
-                    for(AprilTagDetection tag : currentDetections)
-                    {
-                        if(tag.id == LEFT || tag.id == MIDDLE || tag.id == RIGHT)
-                        {
-                            tagOfInterest = tag;
-                            tagFound = true;
-                            break;
-                        }
-                    }
-
-                    if(tagFound)
-                    {
-                        telemetry.addLine("Tag of interest is in sight!\n\nLocation data:");
-                        tagToTelemetry(tagOfInterest);
-                    }
-                    else
-                    {
-                        telemetry.addLine("Don't see tag of interest :(");
-
-                        if(tagOfInterest == null)
-                        {
-                            telemetry.addLine("(The tag has never been seen)");
-                        }
-                        else
-                        {
-                            telemetry.addLine("\nBut we HAVE seen the tag before; last seen at:");
-                            tagToTelemetry(tagOfInterest);
-                        }
-                    }
-
+                    telemetry.addLine("Tag of interest is in sight!\n\nLocation data:");
+                    tagToTelemetry(tagOfInterest);
                 }
                 else
                 {
@@ -658,47 +796,62 @@
                         telemetry.addLine("\nBut we HAVE seen the tag before; last seen at:");
                         tagToTelemetry(tagOfInterest);
                     }
-
                 }
 
-                telemetry.update();
-    //            sleep(20);
-            }
-
-            /*
-             * The START command just came in: now work off the latest snapshot acquired
-             * during the init loop.
-             */
-
-            /* Update the telemetry */
-            if(tagOfInterest != null)
-            {
-                telemetry.addLine("Tag snapshot:\n");
-                tagToTelemetry(tagOfInterest);
-                telemetry.update();
             }
             else
             {
-                telemetry.addLine("No tag snapshot available, it was never sighted during the init loop :(");
-                telemetry.update();
+                telemetry.addLine("Don't see tag of interest :(");
+
+                if(tagOfInterest == null)
+                {
+                    telemetry.addLine("(The tag has never been seen)");
+                }
+                else
+                {
+                    telemetry.addLine("\nBut we HAVE seen the tag before; last seen at:");
+                    tagToTelemetry(tagOfInterest);
+                }
+
             }
-
-            /* Actually do something useful */
-            if (tagOfInterest == null || tagOfInterest.id == LEFT){
-                //trajetoria
-            }else if (tagOfInterest.id == MIDDLE){
-                //trajetoria
-            }else{
-                //trajetoria
-            }
-
-
+            telemetry.update();
+            //            sleep(20);
         }
+
+        /*
+         * The START command just came in: now work off the latest snapshot acquired
+         * during the init loop.
+         */
+
+        /* Update the telemetry */
+        if(tagOfInterest != null)
+        {
+            telemetry.addLine("Tag snapshot:\n");
+            tagToTelemetry(tagOfInterest);
+            telemetry.update();
+        }
+        else
+        {
+            telemetry.addLine("No tag snapshot available, it was never sighted during the init loop :(");
+            telemetry.update();
+        }
+
+        /* Actually do something useful */
+        if (tagOfInterest == null || tagOfInterest.id == LEFT){
+            //trajetoria
+        }else if (tagOfInterest.id == MIDDLE){
+            //trajetoria
+        }else{
+            //trajetoria
+        }
+
+
+    }
 
         void tagToTelemetry(AprilTagDetection detection)
         {
             id = detection.id;
-    //        telemetry.addLine(String.format("\nDetected tag ID=%d", detection.id));
+            telemetry.addLine(String.format("\nDetected tag ID=%d", detection.id));
     //        telemetry.addLine(String.format("Translation X: %.2f feet", detection.pose.x*FEET_PER_METER));
     //        telemetry.addLine(String.format("Translation Y: %.2f feet", detection.pose.y*FEET_PER_METER));
     //        telemetry.addLine(String.format("Translation Z: %.2f feet", detection.pose.z*FEET_PER_METER));
