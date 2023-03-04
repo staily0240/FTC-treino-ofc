@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
@@ -24,7 +25,7 @@ public class OnlyMainCode extends LinearOpMode {
     public DcMotor  LMF;    //Porta 2 - Motor Mecanum - Esquerda Dianteiro
     public DcMotor  LMB;    //Porta 3 - Motor Mecanum - Esquerda Traseiro
 
-    public DcMotor MAT;     //Porta 0 - Motor Core Hex - Antebraço
+    public DcMotor MAT;     //Porta 0 - Motor UltraPlanetary - Antebraço
     public DcMotor MSE;     //Porta 2 - Motor UltraPlanetary - Sistema de Elevação
     public DcMotor MRP;     //Porta 3 - Motor Core Hex - Rotação Prato
 
@@ -33,6 +34,7 @@ public class OnlyMainCode extends LinearOpMode {
 
     BNO055IMU imu;
     public DigitalChannel touch_MRP;
+    public TouchSensor magnetic_MSE;
     public DistanceSensor distanceSensorF;
     public DistanceSensor distanceSensorB;
 
@@ -80,7 +82,7 @@ public class OnlyMainCode extends LinearOpMode {
 
     //Sistema de Elevação
     double currentPosition_MSE, controleEncoder_MSE, targetPosition_MSE, controleForce_MSE, max_MSE = -7000;
-    boolean runMaxPosition_MSE = false, controleMaxPosition_MSE = true, controleMaxPosition_MSE2 = true;
+    boolean runMaxPosition_MSE = false, controleMaxPosition_MSE = true, controleMaxPosition_MSE2 = true, statusMSE = false;
 
     //Prato
     double currentPosition_PRT, targetPosition_PRT = 0, zeroEncoder_PRT = 0, alvo_PRT = 0;
@@ -115,8 +117,8 @@ public class OnlyMainCode extends LinearOpMode {
     static final double MAX_POS_D     =  0.2;     // Maximum rotational position 0.5
     static final double MIN_POS_D     =  0.0;     // Minimum rotational position    certo
 
-    static final double MAX_POS_E     =  0.1;     // Maximum rotational position
-    static final double MIN_POS_E     =  0.4;     // Minimum rotational position 0.5
+    static final double MAX_POS_E     =  0.5;     // Maximum rotational position
+    static final double MIN_POS_E     =  0.15;     // Minimum rotational position 0.5
 
     double  position_D = MIN_POS_D; // Start at halfway position
     double  position_E = MIN_POS_E; // Start at halfway position
@@ -404,7 +406,7 @@ public class OnlyMainCode extends LinearOpMode {
 
         confiSpeedAtb = (confiSpeedAtb > 2) ? 0 : (confiSpeedAtb < 0) ? 2 : confiSpeedAtb;
 
-        confiSpeedAtb = gamepad2.b ? 0 : gamepad2.a ? 1 : gamepad2.x ? 2 : confiSpeedAtb;
+        confiSpeedAtb = gamepad2.b ? 0 : gamepad2.a ? 1 : confiSpeedAtb;
 
         speedAtb = (confiSpeedAtb == 0) ? 1 : (confiSpeedAtb == 1) ? 0.5 : (confiSpeedAtb == 2) ? 0.25 : speedAtb;
 
@@ -489,34 +491,68 @@ public class OnlyMainCode extends LinearOpMode {
 
         controleForce_MSE = -y_left;
 
-        if(gamepad2.y && controleMaxPosition_MSE){
+        if(gamepad2.x && controleMaxPosition_MSE){
             if(runMaxPosition_MSE){runMaxPosition_MSE = false;}else{runMaxPosition_MSE = true;}
             controleMaxPosition_MSE = false;
         }
-        if(!gamepad2.y && !controleMaxPosition_MSE){ controleMaxPosition_MSE = true;}
+        if(!gamepad2.x && !controleMaxPosition_MSE){ controleMaxPosition_MSE = true;}
 
         if(runMaxPosition_MSE){
-            controleForce_MSE = (Math.abs(currentPosition_MSE) < Math.abs(max_MSE)) ? -1 : controleForce_MSE;
+            controleForce_MSE = (Math.abs(currentPosition_MSE) < Math.abs(max_MSE) && !magnetic_MSE.isPressed()) ? -1 : controleForce_MSE;
         }
-        if(!runMaxPosition_MSE && gamepad2.y){
+        if(!runMaxPosition_MSE && gamepad2.x){
             controleForce_MSE = (Math.abs(currentPosition_MSE) >50) ? 1 : controleForce_MSE;
+        }
+
+        if(gamepad2.x){
+            controleForce_MSE = runMaxPosition_MSE ? -1 : 1;
         }
 
         if(((currentPosition_MSE >= 0 && y_left < 0) || (currentPosition_MSE <= max_MSE && y_left > 0)) && (!gamepad2.left_stick_button)){
             controleForce_MSE = 0;
         }
 
+        /*
+
+        max_MSE = gamepad2.left_stick_button ? currentPosition_MSE : max_MSE;
+
+        controleForce_MSE = -y_left;
+
+        if(gamepad2.x && controleMaxPosition_MSE){
+            if(runMaxPosition_MSE){runMaxPosition_MSE = false;}else{runMaxPosition_MSE = true;}
+            controleMaxPosition_MSE = false;
+        }
+        if(!gamepad2.x && !controleMaxPosition_MSE){ controleMaxPosition_MSE = true;}
+
+        if(runMaxPosition_MSE){
+            controleForce_MSE = ((Math.abs(currentPosition_MSE) < Math.abs(max_MSE)) && !magnetic_MSE.isPressed()) ? -1 : controleForce_MSE;
+        }
+        if(!runMaxPosition_MSE){
+            controleForce_MSE = ((Math.abs(currentPosition_MSE) >50) && !magnetic_MSE.isPressed()) ? 1 : controleForce_MSE;
+        }
+        if(gamepad2.x){
+            controleForce_MSE = runMaxPosition_MSE ? -1 : 1;
+        }
+        if(((currentPosition_MSE >= 0 && y_left < 0) || (currentPosition_MSE <= max_MSE && y_left > 0)) && (!gamepad2.left_stick_button)){
+            controleForce_MSE = 0;
+        }
+        * */
     }
 
     public void setServoGarra(){
-
+        //Esquerda q funciona
+        double test = 0.01;
         if(gamepad2.right_bumper){
-            position_D = MAX_POS_D;
+//            position_D += test;
+//            position_E += test;
+//            position_D = MAX_POS_D;
             position_E = MAX_POS_E;
         }
 
         if(gamepad2.left_bumper){
-            position_D = MIN_POS_D;
+//            position_D -= test;
+//            position_E -= test;
+//            position_D = MIN_POS_D;
             position_E = MIN_POS_E;
         }
 
@@ -528,6 +564,10 @@ public class OnlyMainCode extends LinearOpMode {
         forcePRT = PID_PRT + controleManual_PRT;
         forceLIN = controleForce_MSE;
         forceATB = ((analogForceATB * speedAtb) + PID_ATB); // PID_ATB
+    }
+
+    public void testMagnet(){
+
     }
 
 //Sensor's
@@ -614,7 +654,7 @@ public class OnlyMainCode extends LinearOpMode {
         distanceSensorF = hardwareMap.get(DistanceSensor.class, "distanceF");
         distanceSensorB = hardwareMap.get(DistanceSensor.class, "distanceB");
         touch_MRP = hardwareMap.get(DigitalChannel.class,"touch_MRP");
-
+        magnetic_MSE = hardwareMap.get(TouchSensor.class,"magnetic_MSE");
     }
 
     public void setDiretion(){//    DIREÇÃO DOS MOTORES E SERVOS
@@ -623,8 +663,8 @@ public class OnlyMainCode extends LinearOpMode {
         RMF.setDirection(DcMotorSimple.Direction.FORWARD);      //FORWARD - Direção Normal
         RMB.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        MAT.setDirection(DcMotorSimple.Direction.REVERSE);
-        MSE.setDirection(DcMotorSimple.Direction.FORWARD);
+        MAT.setDirection(DcMotorSimple.Direction.FORWARD);
+        MSE.setDirection(DcMotorSimple.Direction.REVERSE);
         MRP.setDirection(DcMotorSimple.Direction.FORWARD);
 
         servoGarra.setDirection(Servo.Direction.FORWARD);
@@ -667,6 +707,8 @@ public class OnlyMainCode extends LinearOpMode {
 //Print's
 
     public void Prints(){
+
+        telemetry.addData("Magnetic Status:\t", magnetic_MSE.isPressed());
 
         telemetry.addLine("\n-------------------------------------------------\n");
 
